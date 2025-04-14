@@ -8,6 +8,7 @@ import Testimonials from './pages/Testimonials';
 import Contact from './pages/Contact';
 import AuthPage from './components/auth';
 import About from './pages/About';
+import Profile from './components/Profile';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/about" element={<About />} />
+            <Route path="/profile" element={<Profile />} />
           </Routes>
         </main>
         <Footer />

@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, User } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const auth = getAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,6 +18,17 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+    return () => unsubscribe();
+  }, [auth]);
+
+  const handleProfileClick = () => {
+    navigate('/profile');
+  };
 
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${
@@ -45,12 +60,22 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
-            <Link
-              to="/auth"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              Get Started
-            </Link>
+            {isAuthenticated ? (
+              <button
+                onClick={handleProfileClick}
+                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Profile
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                Get Started
+              </Link>
+            )}
           </div>
           
           <button
@@ -84,13 +109,28 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
-            <Link
-              to="/auth"
-              className="block px-3 py-2 rounded-lg text-base font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200"
-              onClick={() => setIsOpen(false)}
-            >
-              Get Started
-            </Link>
+            {isAuthenticated ? (
+              <button
+                onClick={() => {
+                  handleProfileClick();
+                  setIsOpen(false);
+                }}
+                className="w-full text-left block px-3 py-2 rounded-lg text-base font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200"
+              >
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </div>
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                className="block px-3 py-2 rounded-lg text-base font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 transition-all duration-200"
+                onClick={() => setIsOpen(false)}
+              >
+                Get Started
+              </Link>
+            )}
           </div>
         </div>
       )}
