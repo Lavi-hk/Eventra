@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, User } from 'lucide-react';
-import { getAuth } from 'firebase/auth';
+import { Calendar, Star, User, LogOut } from 'lucide-react';
+import { getAuth, signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 interface Event {
   id: string;
   title: string;
   date: string;
   time: string;
+  participated?: boolean;  // Track if user actually participated
+  contribution?: number;   // Track user's contribution/engagement level (0-10)
 }
 
 interface Review {
@@ -17,38 +20,86 @@ interface Review {
   date: string;
 }
 
+interface UserStats {
+  eventsAttended: number;
+  totalContribution: number;
+  averageRating: number;
+  vibeScore: number;
+}
+
 const Profile = () => {
+  const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [registeredEvents, setRegisteredEvents] = useState<Event[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [activeTab, setActiveTab] = useState('profile');
+  const [userStats, setUserStats] = useState<UserStats>({
+    eventsAttended: 0,
+    totalContribution: 0,
+    averageRating: 0,
+    vibeScore: 0
+  });
+
+  const calculateVibeScore = (events: Event[], reviews: Review[]): UserStats => {
+    const stats = {
+      eventsAttended: 0,
+      totalContribution: 0,
+      averageRating: 0,
+      vibeScore: 0
+    };
+
+    // Calculate events contribution
+    events.forEach(event => {
+      if (event.participated) {
+        stats.eventsAttended++;
+        stats.totalContribution += event.contribution || 0;
+      }
+    });
+
+    // Calculate average rating from reviews
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    stats.averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+
+    // Calculate vibe score (max 100)
+    // Formula: (30% from event attendance) + (40% from contributions) + (30% from ratings)
+    const attendanceScore = Math.min(30, (stats.eventsAttended / 10) * 30); // Max 30 points, assumes 10 events is max
+    const contributionScore = Math.min(40, (stats.totalContribution / (stats.eventsAttended * 10)) * 40); // Max 40 points
+    const ratingScore = (stats.averageRating / 5) * 30; // Max 30 points
+
+    stats.vibeScore = Math.round(attendanceScore + contributionScore + ratingScore);
+
+    return stats;
+  };
 
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) {
-      // Extract name from email (everything before @)
       const nameFromEmail = user.email?.split('@')[0] || 'User';
       setUserName(nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1));
     }
 
     // Simulated data - replace with actual API calls
-    setRegisteredEvents([
+    const mockEvents = [
       {
         id: '1',
         title: 'Tech Conference 2024',
         date: '2024-05-15',
-        time: '10:00 AM'
+        time: '10:00 AM',
+        participated: true,
+        contribution: 8
       },
       {
         id: '2',
         title: 'Web Development Workshop',
         date: '2024-05-20',
-        time: '2:00 PM'
+        time: '2:00 PM',
+        participated: true,
+        contribution: 7
       }
-    ]);
+    ];
 
-    setReviews([
+    const mockReviews = [
       {
         id: '1',
         eventTitle: 'Tech Conference 2024',
@@ -56,8 +107,22 @@ const Profile = () => {
         comment: 'Amazing event with great speakers!',
         date: '2024-05-15'
       }
-    ]);
+    ];
+
+    setRegisteredEvents(mockEvents);
+    setReviews(mockReviews);
+    setUserStats(calculateVibeScore(mockEvents, mockReviews));
   }, []);
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 pt-20">
@@ -65,14 +130,23 @@ const Profile = () => {
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Profile Header */}
           <div className="bg-gradient-to-r from-teal-500 to-blue-600 p-8">
-            <div className="flex items-center space-x-4">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
-                <User className="w-10 h-10 text-teal-600" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
+                  <User className="w-10 h-10 text-teal-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">{userName}</h1>
+                  <p className="text-teal-100">Student</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">{userName}</h1>
-                <p className="text-teal-100">Student</p>
-              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 bg-white text-teal-600 rounded-lg hover:bg-teal-50 transition-colors"
+              >
+                <LogOut className="w-5 h-5 mr-2" />
+                Logout
+              </button>
             </div>
           </div>
 
@@ -132,6 +206,49 @@ const Profile = () => {
                     <p><span className="font-medium">Name:</span> {userName}</p>
                     <p><span className="font-medium">Email:</span> {getAuth().currentUser?.email}</p>
                     <p><span className="font-medium">Role:</span> Student</p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h2 className="text-lg font-semibold mb-4">Vibe Stats</h2>
+                  <div className="space-y-4">
+                    <div className="relative pt-1">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-teal-600 bg-teal-200">
+                            Vibe Score
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-semibold inline-block text-teal-600">
+                            {userStats.vibeScore}/100
+                          </span>
+                        </div>
+                      </div>
+                      <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-teal-200">
+                        <div
+                          style={{ width: `${userStats.vibeScore}%` }}
+                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-sm text-gray-500">Events Attended</p>
+                        <p className="text-xl font-semibold text-teal-600">{userStats.eventsAttended}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-sm text-gray-500">Avg Contribution</p>
+                        <p className="text-xl font-semibold text-teal-600">
+                          {userStats.eventsAttended ? Math.round((userStats.totalContribution / userStats.eventsAttended) * 10) / 10 : 0}/10
+                        </p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-sm text-gray-500">Avg Rating</p>
+                        <p className="text-xl font-semibold text-teal-600">{userStats.averageRating.toFixed(1)}/5</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -196,4 +313,4 @@ const Profile = () => {
   );
 };
 
-export default Profile; 
+export default Profile;
